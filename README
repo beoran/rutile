@@ -14,7 +14,11 @@ whilst still remaining fully compilable without needing an
 extensive runtime to support it. This means that some Ruby 
 semantics will only be supported at compile time, not at run time.
 
+The license is GPL v3.
+
 Of course this project is highly experimental for now. :)
+
+
 
 
 
