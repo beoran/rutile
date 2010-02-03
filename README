@@ -1,0 +1,23 @@
+Rutile should become a low level compiled programming language that thas the following goals in order of importance:
+
+1) Implemented in Ruby.
+3) Allow low level programmming, and speedy compilation to assembly language.
+5) Be as Rubylike as possible, and easier to use than C. 
+4) Retargetable. 
+6) Support as much Ruby-like high level constructs as is feasible.
+7) Type inference for low level primitives.
+
+
+Rutilec is a compiler or the Rutile programming language.
+The Rutile language tries to be as close to Ruby as possible, 
+whilst still remaining fully compilable without needing an 
+extensive runtime to support it. This means that some Ruby 
+semantics will only be supported at compile time, not at run time.
+
+Of course this project is highly experimental for now. :)
+
+
+
+
+
+

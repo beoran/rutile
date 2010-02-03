@@ -1,0 +1,100 @@
+#
+# Run time library for binaries compiled Rutile compiler
+# Works for Linux, but should be made portable.
+#
+ 
+primitive do  
+  # Primitive system constants  
+  _STDOUT    = 1
+  _STDIN     = 2
+  _STDERR    = 3
+  _SYS_EXIT  = 1
+  _SYS_FORK  = 2
+  _SYS_READ  = 3
+  _SYS_WRITE = 4
+  _SYS_OPEN  = 5
+  _SYS_CLOSE = 6 
+  _SYS_BRK   = 45
+
+  inline do
+  
+    def syscall_raw()
+      asm("int $0x80")
+    end
+    
+    def syscall_0(syscall)
+      asm("movl \syscall, %eax" , syscall)
+      syscall_raw
+    end
+    
+    def syscall_1(syscall, arg1)
+      asm("movl \arg1, %ebx"    , arg1)
+      syscall_0
+    end
+    
+    def syscall_2(syscall, arg1, arg2)
+      asm("movl \arg2, %ebc"    , arg2)
+      syscall_1(arg1)
+    end
+    
+    def syscall_3(syscall, arg1, arg2, arg3)
+      asm("movl \arg3, %edx"     , arg3)
+      syscall_2(arg1)
+    end
+    
+    def syscall_4(syscall, arg1, arg2, arg3, arg4)
+      asm("movl \arg4, %edi"     , arg4)
+      syscall_3(arg1)
+    end
+    
+    def syswrite(fileno, str, str_size)
+      sys_call_3(_SYS_WRITE, fileno, str, str_size)
+    end
+    
+    def sysexit(retval)
+      sys_call_1(_SYS_EXIT, retval)
+    end
+
+    def sysbrk(delta)
+      sys_call_1(_SYS_BRK, delta)
+    end
+
+    # We use a Forth-like return stack, and a separate parameter stack
+    # NEXT jumps to (returns to) the next function to call
+    def sysnext()
+      asm("lods")
+      asm("jmp *(%eax)")
+    end
+    
+# Uses a system call to allocate a block of memory with the given size. 
+# New address is in %eax. Clobbers %ebx, and anything involved in the syscall.
+    def const_alloc size
+      sysbrk(0)
+      asm("addl \size, %eax", size)
+      asm("movl %eax , %ebx")
+      sysbrk("%ebx")
+    end
+
+    def syspushret(reg)
+      asm('lea -4(%ebp),%ebp') 
+      asm('\reg,(%ebp)', reg)
+    end
+
+    def syspopret(reg)
+      asm('mov (%ebp),\reg', reg)
+      asm('lea 4(%ebp),%ebp');
+    end
+
+  end
+
+
+end
+
+
+
+
+
+
+
+
+
