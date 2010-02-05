@@ -72,13 +72,25 @@ module Neotoma
       return block.call(self) 
     end
     
-    # Returns the value convverted to string only only
+    # Returns the value converted to string only only
     def to_s
       return value.to_s
     end
     
     def inspect
       return "<#{self.class}: (#{self.rule.name} #{self.to_s})>"
+    end
+    
+    # Converts the results to an S-expression style array  
+    def to_a
+      result   = [ self.rule.name.to_sym,  self.value ]   
+      subarray = []
+      for child in self.children
+        childarray = child.to_a
+        subarray    << childarray 
+      end
+      result  << subarray
+      return result      
     end
     
     # For graphing a result tree to a Dot graph     
@@ -177,7 +189,7 @@ module Neotoma
     # Converts a literal to a literal rule, but leaves a rule a rule.
     def self.to_rule(other_rule, name = nil)
       return other_rule if other_rule.is_a?(Rule)
-      name     ||= "Literal: #{other_rule}"
+      name     ||= "#{other_rule}"
       other_rule = Literal.new(name, other_rule)
       return other_rule
     end
@@ -216,8 +228,8 @@ module Neotoma
       return Repetition.new("#{self.name}*#{at_most}", self, 0, at_most)
     end
     
-    # rule.once? returs a Repetition that means "once or not at all"    
-    def once?
+    # rule.any? returs a Repetition that means "once or not at all"    
+    def any?
       return Repetition.new("#{self.name}?", self, 0, 1)
     end
     
@@ -450,10 +462,16 @@ module Neotoma
       @rule = rule
     end
     
+    # Changes the name of the defined suprule also if it's available
+    def name=(newname)
+      @rule.name  = newname if @rule
+      @name       = newname
+    end
+    
     # The parsing step simply forwards the parsing to the rule 
     # which should have been defined through define_rule 
     def parse(scanner, cache={})
-      raise "Placeholder rule is undefined!" unless @rule
+      raise "Placeholder rule \'#{self}\' is undefined!" unless @rule
       subres   = @rule.parse(scanner, cache)
       if subres 
         result = make_result(nil)
@@ -475,7 +493,7 @@ module Neotoma
   # based on it's defined rules
   class Parser < Rule
     
-    attr_accessor :start
+    attr_reader   :start
     attr_reader   :rules
     
     def initialize(name = 'parser', &block)
@@ -483,7 +501,7 @@ module Neotoma
       @start    = nil
       @scanner  = nil
       @rules    = {}
-      define_rules(&block)
+      define_rules(&block) if block
     end
     
     def define_rules(&block)
@@ -506,8 +524,8 @@ module Neotoma
       return self.to_rule(value, name)
     end
     
-    def lit(value)
-      return self.to_rule(value, nil)
+    def lit(value, name = nil)
+      return self.to_rule(value, name)
     end
     
     def keyword(name, nonword='\\W')
@@ -530,7 +548,9 @@ module Neotoma
     def []=(key, value)      
       oldrule               = @rules[key.to_sym]
       if oldrule && oldrule.respond_to?(:define_rule)
+        # define rule and rename it 
         oldrule.define_rule(value)
+        oldrule.name        = key.to_sym
       else 
         setrule             = self.to_rule(value, "#{key}")
         @rules[key.to_sym]  = setrule
