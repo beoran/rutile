@@ -1,8 +1,37 @@
 require 'tempfile'
+require 'sexp_processor'
 require 'ruby_parser'
 
 
 
+class Ruby2Rutile < SexpProcessor
+  def rewrite_iter(expr)
+    subexpr = expr[1]
+    return expr unless subexpr
+    call    = subexpr[0]
+    return expr unless call == :call
+    kind    = subexpr[2]
+    args    = subexpr[3]
+    p "----"
+    if [:primitive, :inline, :record, :func].member? kind
+      p args
+      result = Sexp.new(kind, args, *expr[3..expr.size])
+      p result
+      return result
+    end
+    return expr
+  end
+  
+  def rewrite_call(expr)
+    called  = expr[2]
+    if [:asm].member? called
+      result = Sexp.new(called, *expr[3..expr.size])
+      return result
+    end
+    return expr
+  end
+
+end
 
 
 class Compiler
@@ -18,6 +47,9 @@ class Compiler
     text    = infile.read
     infile.close    
     res = @parser.parse(text)
+    @rewrite= Ruby2Rutile.new
+    
+    @rewrite.rewrite(res)
   end
 
   def compile_program(inname, outname)

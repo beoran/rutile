@@ -3,6 +3,12 @@
 # Works for Linux, but should be made portable.
 #
  
+class Foo
+end
+ 
+module Bar 
+end 
+ 
 primitive do  
   # Primitive system constants  
   _STDOUT    = 1
@@ -15,6 +21,13 @@ primitive do
   _SYS_OPEN  = 5
   _SYS_CLOSE = 6 
   _SYS_BRK   = 45
+  
+  record Rec do 
+  end
+  
+  func foofunc(bar, baz) do
+    return foo + bar
+  end
 
   inline do
   
