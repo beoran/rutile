@@ -25,7 +25,7 @@ primitive do
   record Rec do 
   end
   
-  func foofunc(bar, baz) do
+  func foofunc(int32, bar , int32, baz), int32 do
     return foo + bar
   end
 

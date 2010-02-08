@@ -12,11 +12,9 @@ class Ruby2Rutile < SexpProcessor
     return expr unless call == :call
     kind    = subexpr[2]
     args    = subexpr[3]
-    p "----"
+    # Rewrite these block calls as special expressions
     if [:primitive, :inline, :record, :func].member? kind
-      p args
       result = Sexp.new(kind, args, *expr[3..expr.size])
-      p result
       return result
     end
     return expr
@@ -24,6 +22,7 @@ class Ruby2Rutile < SexpProcessor
   
   def rewrite_call(expr)
     called  = expr[2]
+    # Rewrite these function calls as special expressions
     if [:asm].member? called
       result = Sexp.new(called, *expr[3..expr.size])
       return result
