@@ -2,7 +2,8 @@ Rutile should become a low level compiled programming language that thas the fol
 
 1) Implemented in Ruby.
 3) Allow low level programmming, and speedy compilation to assembly language.
-5) Be as Rubylike as possible, and easier to use than C. 
+5) Be as Rubylike as possible, preferrably an almost compatible 
+   dialect of Ruby, so it much easier to use than C. 
 4) Retargetable. 
 6) Support as much Ruby-like high level constructs as is feasible.
 7) Type inference for low level primitives.

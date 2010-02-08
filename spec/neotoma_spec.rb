@@ -90,7 +90,7 @@ describe Neotoma::Parser, "class" do
   
   it "should be able to parse a alternates" do
     parser = Neotoma::Parser.new do
-      lit('foo', :foo) / lit('bar', :bar)
+       lit('foo', :foo) / lit('bar', :bar)
     end
     txt1   = 'foo'
     txt2   = 'bar'
@@ -101,6 +101,45 @@ describe Neotoma::Parser, "class" do
     result.should_not be_nil
     result.to_a.should == [:bar, 'bar', []]
   end
+  
+  it "should be able to parse alternates with correct priority" do
+    parser = Neotoma::Parser.new do
+      self.anychar  = lit(/\w+/, :anychar)
+      self.foo      = keyword('foo')
+      self.bar      = lit('bar', :bar) 
+      self.start    = self.foo / self.bar / self.anychar
+    end
+    txt1   = 'foo'
+    txt2   = 'baz'
+    txt3   = 'bar'
+    result = parser.parse(txt1)
+    result.should_not be_nil
+    result.to_a.should == [:foo, 'foo', []]
+    result = parser.parse(txt2)
+    result.should_not be_nil
+    result.to_a.should == [:anychar, 'baz', []]
+    result = parser.parse(txt3)
+    result.should_not be_nil
+    result.to_a.should == [:bar, 'bar', []]
+  end
+  
+  
+  it "should be able to parse sequences and alternates of words" do
+    parser = Neotoma::Parser.new do
+      self.foobar  = lit('foo', :foo) / lit('bar', :bar)
+      self.bazquux = lit('baz', :baz) / lit('quux', :quux)
+      self.start   = self.foobar & self.bazquux   
+    end
+    txt1   = 'fooquux'
+    txt2   = 'barbaz'
+    result = parser.parse(txt1)
+    result.should_not be_nil
+    result.to_a.should == [:"{foo|bar|baz|quux}", nil, [[:foo, "foo", []], [:quux, "quux", []]]]
+    result = parser.parse(txt2)
+    result.should_not be_nil
+    result.to_a.should == [:"{foo|bar|baz|quux}", nil, [[:bar, "bar", []], [:baz, "baz", []]]]
+  end
+  
   
   it "should fail to parse if the sequence is not correct" do
     parser = Neotoma::Parser.new do
@@ -134,7 +173,7 @@ describe Neotoma::Parser, "class" do
     parser = Neotoma::Parser.new do
       self.foo        = /foo/
       self.manyfoo    = self.foo.*
-      self.start  = self.manyfoo
+      self.start      = self.manyfoo
     end
     txt    = 'foofoo'
     result = parser.parse(txt)
@@ -170,12 +209,47 @@ describe Neotoma::Parser, "class" do
     parser = Neotoma::Parser.new do
       lit('foo').+  
     end
-    txt    = 'foofoo'
+    txt    = 'foofoobar'
     result = parser.parse(txt)
     result.should_not be_nil
     ok = [:"foo+", nil, [[:foo, "foo", []], [:foo, "foo", []]]]
+    result.to_a.should == ok
+    parser.rest.should == 'bar' 
+  end
+  
+  it "should support .has? for positive lookahead" do
+      parser = Neotoma::Parser.new do
+        lit('foo').has?  
+      end
+    txt1   = 'bar'
+    result = parser.parse(txt1)
+    parser.scanner.rest.should == txt1
+    result.should be_nil
+    txt2   = 'foo' 
+    result = parser.parse(txt2)
+    parser.scanner.rest.should == txt2
+    result.should_not be_nil    
+    ok     = [:foo, "foo", []]
+    result.to_a.should == ok
+  end
+
+  
+  it "should support .not! for negative lookahead" do
+      parser = Neotoma::Parser.new do
+        lit('foo').not!  
+      end
+    txt1   = 'foo'
+    result = parser.parse(txt1)
+    parser.scanner.rest.should == txt1
+    result.should be_nil
+    txt2   = 'bar' 
+    result = parser.parse(txt2)
+    parser.scanner.rest.should == txt2
+    result.should be_nil    
+    ok     = []
     result.to_a.should == ok 
   end
+
   
   it "should be able to parse keywords correctly" do
     parser = Neotoma::Parser.new do
@@ -191,20 +265,25 @@ describe Neotoma::Parser, "class" do
   end
   
   it "should parse compicated grammars with recursive structures" do
-    s = %q{do foo end}
+    s = %q{do    foo end}
   
-    parser       = Neotoma::Parser.new do  
-      self.program    = (self.doblock / self.white_word).*
+    parser       = Neotoma::Parser.new do
+      self.pgmpart      = self.doblock # / self.white_word  
+      self.program      = self.doblock.+
       self.program.name = :program
-      self.whitespace = '\W+'
-      self.word       = '\w+'
-      self.key_do     = keyword('do')
-      self.key_end    = keyword('end')
+      self.key_do       = keyword('do') 
+      self.key_end      = keyword('end')
+      self.kw           = key_do / key_end
+      self.whitespace   = /\W+/
+      self.rawword      = '\w+' 
+      self.word         = self.rawword 
       # self.brace_open = '{'
       # self.brace_close= '}'
-      self.white_word   = word / whitespace
-      self.inblock      = (self.doblock / self.white_word).*
+      self.white_word   = word /   whitespace
+#        self.inblock & 
+      self.inblock      = (self.white_word).*
       self.inblock.name = 'inblock'
+#       self.inblock & 
       self.doblock      = self.key_do & self.inblock & self.key_end
       self.doblock.name = 'doblock'
       # self.braceblock = brace_open & inblock & brace_close

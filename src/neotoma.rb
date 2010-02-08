@@ -118,6 +118,7 @@ module Neotoma
   end 
 
   # The scanner wraps the input string
+  # and also provides a cashe for previously scanned results 
   class Scanner < StringScanner
     attr_reader :checkpoints
   
@@ -133,10 +134,12 @@ module Neotoma
     end
        
     # Rolls back to the previous checkpoint. returns self. 
-    # Raises an exception if the checkpoit stack is empty. 
+    # Rolls back to position 0 if the checkpoint stack is empty. 
     def rollback()
       oldpos    = @checkpoints.pop
-      raise "Checkpoint stack underflow in scanner!" unless oldpos
+      unless oldpos
+        oldpos = 0
+      end
       self.pos  = oldpos
       return self    
     end
@@ -151,6 +154,11 @@ module Neotoma
       self.commit if result
       return result
     end 
+    
+    # Returns the rest of the scanner
+    def rest
+      return self.string[self.pos..(self.string.size)]      
+    end
    
   end 
 
@@ -169,16 +177,22 @@ module Neotoma
     
     # Cached parse of the input for this rule
     def parse(scanner, cache = {})
-      cache_key           = "#{self.object_id}:#{scanner.pos}"
-      cached, cached_pos  = cache[cache_key]
-      if cached
-        scanner.pos       = cached_pos 
-        return cache
-      else    
+        cache_key           = "#{self.object_id}:#{scanner.pos}"
+#       cached, cached_pos  = cache[cache_key]
+#       if cached
+#         scanner.pos       = cached_pos 
+#         return cache
+#       else    
+#         
         result            = parse_real(scanner)
+        if result 
+          scanner.commit
+        else  
+          scanner.rollback 
+        end 
         cache[cache_key]  = [ result, scanner.pos ]
         return result
-      end  
+      # end  
     end
     
     # Parses the input for real. Override this.
@@ -227,6 +241,17 @@ module Neotoma
     def *(at_most = nil)
       return Repetition.new("#{self.name}*#{at_most}", self, 0, at_most)
     end
+    
+    # Negative lookahead
+    def not!()
+      return NegativeLookahead.new("#{self.name}!", self)
+    end
+    
+    # Positive lookahead
+    def has?()
+      return PositiveLookahead.new("#{self.name}!", self)
+    end
+    
     
     # rule.any? returs a Repetition that means "once or not at all"    
     def any?
@@ -296,7 +321,7 @@ module Neotoma
     end 
     
     def parse_real(scanner)
-      found = scanner.scan_commit(@literal)
+      found = scanner.scan(@literal)
       return make_result(found) if found
       return nil
     end
@@ -343,7 +368,6 @@ module Neotoma
         end
         result << subres
       end  
-      scanner.commit
       return result
     end
     
@@ -364,7 +388,6 @@ module Neotoma
       for rule in @rules do
         subres = rule.parse(scanner)
         if subres
-          scanner.commit
           return subres
         end
       end  
@@ -389,14 +412,51 @@ module Neotoma
         
   end
   
-  # Negative or positive lookahead
-  class Lookahead < Rule
-    def initialize(name, rule, positive = true)
+  # Positive lookahead
+  class PositiveLookahead < Rule
+    def initialize(name, rule)
       super(name)
       @rule       = rule
-      @positive   = positive
+    end
+        
+    def parse_real(scanner)
+      scanner.commit
+      result = @rule.parse(scanner)
+      if result
+        scanner.rollback # need to roll back twice since parse committed
+        scanner.rollback # need to roll back since parse committed 
+        newres = make_result(true)
+        newres << result
+        return result
+      else
+        return nil
+      end  
     end
   end
+  
+  # Negative lookahead
+  class NegativeLookahead < Rule
+    def initialize(name, rule)
+      super(name)
+      @rule       = rule
+    end
+        
+    def parse_real(scanner)
+      scanner.commit
+      result = @rule.parse(scanner)
+      if result
+        scanner.rollback # need to roll back since parse committed
+      end  
+      # If no result, scan automatically rolls back
+      unless result 
+        newres = make_result(false)
+        return result
+      else
+        return nil
+      end
+    end
+  end
+
   
   # End of parser input 
   class Endstream < Rule
@@ -433,13 +493,11 @@ module Neotoma
         subres = @rule.parse(scanner)
         # If no more results from scan, just return constructed result
         unless subres
-          scanner.commit
           return result
         end        
         result   << subres 
         @repeat  += 1
       end  
-      scanner.commit
       return result
     end
     
@@ -470,14 +528,14 @@ module Neotoma
     
     # The parsing step simply forwards the parsing to the rule 
     # which should have been defined through define_rule 
-    def parse(scanner, cache={})
+    def parse_real(scanner)
       raise "Placeholder rule \'#{self}\' is undefined!" unless @rule
-      subres   = @rule.parse(scanner, cache)
+      subres   = @rule.parse(scanner)
       if subres 
         result = make_result(nil)
         result << subres
       else 
-        result = nil  
+        result = nil
       end  
       return result
     end
@@ -495,6 +553,7 @@ module Neotoma
     
     attr_reader   :start
     attr_reader   :rules
+    attr_reader   :scanner
     
     def initialize(name = 'parser', &block)
       super(name)
@@ -580,9 +639,17 @@ module Neotoma
       end
     end
     
+    # Child nodes
     def children
       return [ @start ] 
     end
+    
+    # Rest of unparsed string
+    def rest
+      return @scanner.rest if scanner
+      return nil
+    end
+    
     
      # For graphing to a dot graph node
      def to_graph_node(graph, parentnode)
