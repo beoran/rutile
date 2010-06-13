@@ -21,14 +21,17 @@ class Target
     attr_reader :desc
     # Size in bytes of full instruction with operand data
     attr_reader :size
+    # Timing of instruction
+    attr_reader :time
     # Block to be called on assembly
     attr_reader :block
     
-    def initialize(code, size, name, desc = nil, &block)
+    def initialize(code, size, name, timing, desc = nil, &block)
       @code = code.to_i
       @size = size.to_i
       @name = name.to_s
-      @desc = desc.to_s || name.to_s
+      @time = timing.to_s
+      @desc = desc.to_s || name.to_s      
       @block= block
     end
     
@@ -56,8 +59,8 @@ class Target
   end
   
   # adds another known operation to this target CPU
-  def operation(code, size, name, desc = nil, &block)
-    inst = Operation.new(code, size, name, desc, &block)
+  def operation(code, size, name, time, desc = nil, &block)
+    inst = Operation.new(code, size, name, time, desc, &block)
     @operation_by_code[inst.code] = inst 
     @operation_by_name[inst.name.downcase.to_sym] = inst
   end
@@ -70,8 +73,8 @@ class Target
     return @registers[name.downcase.to_sym] 
   end
   
-  def self.operation(code, size, name, desc = nil, &block)
-    return self.instance.operation(code, size, name, desc, &block)
+  def self.operation(code, size, name, time, desc = nil, &block)
+    return self.instance.operation(code, size, name, time, desc, &block)
   end
   
   def self.lookup_operation(name)

@@ -1,4 +1,5 @@
-Rutile should become a low level compiled programming language that thas the following goals in order of importance:
+Rutile should become a low level compiled programming language that thas the 
+following goals in order of importance:
 
 1) Implemented in Ruby.
 3) Allow low level programmming, and speedy compilation to assembly language.
@@ -19,9 +20,8 @@ The license is GPL v3.
 
 Of course this project is highly experimental for now. :)
 
-
-
-
+Current line of thought: why not compile to the 
+Go programming language?
 
 
 

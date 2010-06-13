@@ -115,6 +115,12 @@ class Assembler
     raise "Negative origin not allowed." if ori < 0
     @origin = ori
   end
+  
+  # Updatest he origin to be equal to the next multiple of with. 
+  # Pads with 0 or pad
+  def align(with, pad=0) 
+    
+  end
    
   # Adds a label to the label hash. Labels are case sensitive 
   def label(name, global=true) 
