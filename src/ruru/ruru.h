@@ -76,8 +76,8 @@ RU_FUNC(RuRuntime*)  ru_free(RuRuntime * self , void * pointer);
 
 /* Initializes a runtime. */ 
 RU_FUNC(RuRuntime *) ru_runtime_init(RuRuntime * self,
-                                     RuAllocFunc * a, 
-                                     RuFreeFunc  * f);
+                                     RuAllocFunc a, 
+                                     RuFreeFunc  f);
 
 /* Sets the default runtime. Returns last default runtime. NOT REENTRANT! */
 RU_FUNC(RuRuntime *) ru_runtime_default_set(RuRuntime * self);
@@ -107,7 +107,16 @@ struct RuBase_ {
 
 
 
-// Initializes a basic object 
+
+// Initializes a basic object.
+RU_FUNC(RuBase *)  ru_base_init(RuBase * b,  RuRuntime * r, 
+				RuBaseFreeFunc f, RuSize s);
+
+// Makes a basic object.
+RU_FUNC(RuBase *)  ru_base_make(RuRuntime * r, RuBaseFreeFunc f, RuSize s);
+
+// Frees a basic object only
+RU_FUNC(RuBase *)  ru_base_free(RuBase * b);
 
 // Increases the reference count of a base object and returns it.
 RU_FUNC(RuBase *)  ru_use(RuBase * self);

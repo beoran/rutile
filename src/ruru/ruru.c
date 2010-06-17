@@ -25,8 +25,8 @@ RU_FUNC(void*)  ru_alloc(RuRuntime * self, RuSize size) {
 
 /* Initializes a runtime with the required parameters. */ 
 RU_FUNC(RuRuntime *) ru_runtime_init(RuRuntime * self,
-                                     RuAllocFunc * a, 
-                                     RuFreeFunc  * f) {
+                                     RuAllocFunc a, 
+                                     RuFreeFunc  f) {
   if (!self)    return self;
   self->alloc = ( a ? a : ru_alloc);
   self->free  = ( f ? f : ru_free );
@@ -79,6 +79,32 @@ RU_FUNC(RuRuntime *) ru_runtime_default_get(RuRuntime * self) {
   return  default_runtime_ptr;
 }
 
+
+// Initializes a basic object.
+RU_FUNC(RuBase *)  ru_base_init(RuBase * b, RuRuntime * r,
+				RuBaseFreeFunc f, RuSize s) {
+  if (!b) return b;
+  b->runtime	= r;
+  b->free 	= ( f ? f : ru_base_free);
+  b->size 	= s;
+  b->refcount 	= 1;
+}
+
+// Frees a basic object only
+RU_FUNC(RuBase *)  ru_base_free(RuBase * b) {
+  if (!b) 	   	 return b;
+  if (!b->runtime) 	 return b;
+  if (!b->runtime->free) return b;
+  RU_DO1(b->runtime, free, b);
+  return NULL;
+}
+
+// Makes a basic object, allocating it.
+RU_FUNC(RuBase *) ru_base_make(RuRuntime * r, RuBaseFreeFunc f, RuSize s) {
+  RuBase * b;
+  b = (RuBase *) RU_DO1(r, alloc, s);
+  return ru_base_init(b, r, f, s);
+}
 
 
 
