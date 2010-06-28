@@ -679,29 +679,31 @@ end
 
 if $0 == __FILE__
   
-s = %q{do do end end}
+s = %q{foofoo}
 
-parser       = Neotoma::Parser.new do  
-  self.program    = (self.block / self.white_word).*
+parser       = Neotoma::Parser.new do
+=begin
   self.whitespace = '\W+'
-  self.word       = '\w+'
-  self.key_do     = keyword('do'  , '\W+')
-  self.key_end    = keyword('end' , '\W+')
-  self.brace_open = '{'
-  self.brace_close= '}'
-  self.white_word = self.key_do / word / whitespace
-  self.inblock    = (self.block / self.white_word).*
-  self.doblock    = self.key_do & self.inblock & self.key_end
-  self.braceblock = brace_open & inblock & brace_close
-  self.block      = doblock / braceblock 
-  start           = self.doblock
+  self.newline    = '\r\n|\n|\r' 
+  self.scomment   = lit('#[^\r\n]+') & self.newline
+  self.comment    = scomment
+  self.toplevel   = comment / whitespace
+  self.program    = toplevel.+
+=end  
+  self.bar        = 'bar'
+  self.foo        = 'foo'
+  self.notbar     = ((bar.not!).+) & (foo.+)
+  self.program    = self.notbar
+  start           = self.program
 end
 
 # p parser.rules
 # parser.to_graph.display
 
 results           = parser.parse(s)
-results.to_graph.display
+if results 
+  results.to_graph.display
+end  
 # p results
 p results
 
