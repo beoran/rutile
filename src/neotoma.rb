@@ -448,9 +448,10 @@ module Neotoma
         scanner.rollback # need to roll back since parse committed
       end  
       # If no result, scan automatically rolls back
-      unless result 
+      p @rule, result
+      if !result 
         newres = make_result(false)
-        return result
+        return newres
       else
         return nil
       end
@@ -481,6 +482,7 @@ module Neotoma
       # First, check if we can parse the rule at least minimum times. 
       while @repeat < @minimum
         subres = @rule.parse(scanner)
+        p @rule, @repeat, scanner, subres  
         unless subres
           return nil 
         end
@@ -679,7 +681,7 @@ end
 
 if $0 == __FILE__
   
-s = %q{foofoo}
+s = %q{foofoofoo}
 
 parser       = Neotoma::Parser.new do
 =begin
@@ -690,9 +692,11 @@ parser       = Neotoma::Parser.new do
   self.toplevel   = comment / whitespace
   self.program    = toplevel.+
 =end  
-  self.bar        = 'bar'
-  self.foo        = 'foo'
-  self.notbar     = ((bar.not!).+) & (foo.+)
+  self.barkw      = 'bar'
+  self.fookw      = 'foo'
+  # ((bar.not!).+) &
+  self.notbar     = ((barkw.not!).+) 
+  #  (fookw.+)
   self.program    = self.notbar
   start           = self.program
 end
