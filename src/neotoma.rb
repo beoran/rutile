@@ -178,13 +178,14 @@ module Neotoma
     # Cached parse of the input for this rule
     def parse(scanner, cache = {})
         cache_key           = "#{self.object_id}:#{scanner.pos}"
-#       cached, cached_pos  = cache[cache_key]
-#       if cached
-#         scanner.pos       = cached_pos 
-#         return cache
-#       else    
-#         
+        cached, cached_pos  = cache[cache_key]
+        if cached
+          scanner.pos       = cached_pos 
+          return cached
+        end
+        
         result            = parse_real(scanner)
+        
         if result 
           scanner.commit
         else  
@@ -210,11 +211,11 @@ module Neotoma
     
     # Alteration operator
     def | (other)
-      return self / other
+      return self / other 
     end
     
     # Alteration operator
-    def / (other)
+    def / (other)   # / is the alteration operator
       other_rule = self.class.to_rule(other)
       return Alternate.new("#{self}|#{other}", self, other)
     end
@@ -222,7 +223,7 @@ module Neotoma
     # Sequence operator
     def & (other)
       other_rule = self.class.to_rule(other)
-      return Sequence.new("{#{self.name}|#{other.name}}", self, other) 
+      return Sequence.new("{#{self.name}&#{other.name}}", self, other) 
     end
     
     # +rule returs a Repetition that means "at least once" 
@@ -242,7 +243,7 @@ module Neotoma
       return Repetition.new("#{self.name}*#{at_most}", self, 0, at_most)
     end
     
-    # Negative lookahead
+    # Negative lookahead.
     def not!()
       return NegativeLookahead.new("#{self.name}!", self)
     end
@@ -251,12 +252,22 @@ module Neotoma
     def has?()
       return PositiveLookahead.new("#{self.name}!", self)
     end
-    
-    
-    # rule.any? returs a Repetition that means "once or not at all"    
+        
+    # rule.any? returns a Repetition that means "once or not at all"    
     def any?
       return Repetition.new("#{self.name}?", self, 0, 1)
     end
+    
+    # Anything, that is any one character.
+    def anything 
+      Literal.new('anything', '.')
+    end
+    
+    # Anything but the given literal
+    def anything_but(lit, name = nil)
+      notthis = Literal.new(name, lit).not!()         
+      return (notthis & self.anything).*
+    end    
     
     # Returns true if the rule is terminal. 
     # Inspects children to find out
@@ -607,15 +618,16 @@ module Neotoma
     # the placeholder rule will be defined by calling .define_rule
     # on it  
     def []=(key, value)      
-      oldrule               = @rules[key.to_sym]
+      keysym               = key.to_sym
+      oldrule               = @rules[keysym]
       if oldrule && oldrule.respond_to?(:define_rule)
         # define rule and rename it 
         oldrule.define_rule(value)
-        oldrule.name        = key.to_sym
+        oldrule.name        = keysym
       else 
-        setrule             = self.to_rule(value, "#{key}")
-        @rules[key.to_sym]  = setrule
-      end        
+        setrule             = self.to_rule(value, keysym)
+        @rules[keysym]      = setrule
+      end
     end
     
     # Returns the rule, or, if 
@@ -681,7 +693,13 @@ end
 
 if $0 == __FILE__
   
-s = %q{foofoofoo}
+s = %q{
+
+#foofoofoo
+
+
+
+}
 
 parser       = Neotoma::Parser.new do
 =begin
@@ -691,20 +709,27 @@ parser       = Neotoma::Parser.new do
   self.comment    = scomment
   self.toplevel   = comment / whitespace
   self.program    = toplevel.+
-=end  
-  self.barkw      = 'bar'
-  self.fookw      = 'foo'
+=end
+  self.whitespace = '\W+'
+  self.newline    = '\r\n|\n|\r'  
   # ((bar.not!).+) &
-  self.notbar     = ((barkw.not!).+) 
+  # self.anything   = '.'
+
+  self.notbar         = ((barkw.not! & anything ).+) 
+  self.shell_comment  = lit(%r{#([^\n\r]*)?(\n\r|\r|\n)}, 'shell comment')
+  self.cpp_comment    = lit(%r{//([^\n\r]*?)(\n\r|\r|\n)}, 'cpp comment')
+  self.comment        = shell_comment / cpp_comment
   #  (fookw.+)
-  self.program    = self.notbar
-  start           = self.program
+  self.program        = (comment / whitespace / newline).+
+  start               = self.program
 end
 
 # p parser.rules
 # parser.to_graph.display
+parser.to_graph.display
 
 results           = parser.parse(s)
+
 if results 
   results.to_graph.display
 end  
