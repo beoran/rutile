@@ -71,8 +71,7 @@ module Parser
     
     # Returns the value converted to string only only
     def to_s
-      return "#{self.value.text}" if self.value
-      return "nil"
+      return value.to_s
     end
     
     def inspect
@@ -125,11 +124,7 @@ module Parser
     
     def initialize(parser, name)
       @parser = parser
-      @name   = name.to_s
-    end
-    
-    def name=(nam)
-      @name = nam.to_s
+      @name   = name
     end
     
     # Makes a result for this rule
@@ -314,7 +309,7 @@ module Parser
       # We have to be able to get all results
       for rule in @rules do
         subres = rule.parse()
-        unless subres
+        if !subres
           return nil
         end
         result << subres
@@ -422,8 +417,8 @@ module Parser
       @repeat     = 0
       # First, check if we can parse the rule at least minimum times. 
       while @repeat < @minimum
-        subres = @rule.parse()  
-        unless subres
+        subres = @rule.parse()
+        if !subres
           return nil 
         end
         result        << subres
@@ -434,7 +429,7 @@ module Parser
       while @maximum.nil? || @repeat < @maximum
         subres = @rule.parse()
         # If no more results from scan, just return constructed result
-        unless subres
+        if !subres
           return result
         end        
         result   << subres 
@@ -511,16 +506,12 @@ module Parser
   end
   
   def parse(input)
-    @lexer        = RutileLexer.new(input)
-    @tokens       = @lexer.tokenize
+    @lexer  = RutileLexer.new(input)
+    @tokens = @lexer.tokenize
     @index        = 0
-    @active       = []
-    @checkpoints  = []
-    result        = @start.parse()
-    if !result
-      warn "Parse error: #{self.peek.lineno} : #{self.peek.colno} #{self.peek}!"
-      p @tokens
-    end
+    @active      = []
+    @checkpoints = []
+    result    = @start.parse()
     return result
   end
   
@@ -606,8 +597,6 @@ module Parser
     else 
       setrule             = self.to_rule(value, keysym)
       @rules[keysym]      = setrule
-      # and rename it anyway
-      # setrule.name        = keysym
     end
   end
     
@@ -671,12 +660,9 @@ class RutileParser < Parser::Parser
       comment   = t(:c_comment) | t(:shell_comment) | t(:cpp_comment)
       blanks    = (t(:ws)       | t(:nl))
       string    = t(:sqstring)  | t(:dqstring)  
-      
-      packtl    = t(:package) & t(:ws) & string
-      importtl  = t(:import) & t(:ws) & string
-      # packtl | importtl   | 
-      toplevel  = comment       | blanks
-             
+      package_tl= t(:package)   & t(:ws)        & string
+      import_tl = t(:package)   & t(:ws)        & string
+      toplevel  = package_tl    | import_tl    | comment       | blanks
       program   = toplevel.+
       self.start= program
     end
@@ -690,19 +676,23 @@ if __FILE__ == $0
   puts data
   parser = RutileParser.new()
   result = parser.parse(data)
-  p parser.active
   parser.to_graph.display
-  result.to_graph.display if result
+  if result
+    result.to_graph.display
+  else
+    warn "Syntax error in: #{parser.peek.lineno}"
+  end   
   
   
 end
 
 
 __END__
+package "main"
 
+import "stdio"
 
-
-# import "foo"
+# package "main"
 
 // also comment
 
