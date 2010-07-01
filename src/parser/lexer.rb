@@ -20,8 +20,8 @@ class Lexer
     end
     
     def name
-      '(anonymous)' if !@lexeme      
-      @lexeme
+      '(anonymous)'.to_s if !@lexeme
+      @lexeme.to_s
     end
     
     def to_s
@@ -222,7 +222,7 @@ class RutileLexer < Lexer
     lexer.operator('>')
     lexer.operator('>>')
  
-    symbol_re = %r{:[^ \t\n\r]+}
+    symbol_re = %r{:[^ \t\n\r\\]+}
     lexer.lexeme(:symbol  , symbol_re)
 
     lexer.keyword(:nil)
@@ -292,13 +292,13 @@ class RutileLexer < Lexer
     
     # lexer.keyword(:)
     
-    const_re    = %r{[A-Z][^ \t\n\r\n\;\.\[\]\(\)\{\}]*}mx
+    const_re    = %r{[A-Z][^ \t\n\r\n\;\.\[\]\(\)\{\}\\]*}mx
     lexer.lexeme(:constant          , const_re)
     
     custop_re   = %r{[\+\-\*\/\!\&\^\%\=\|<>\[\]\.]+}mx
     lexer.lexeme(:custom_operator   , custop_re)
     
-    id_re       = %r{[^ \t\n\r\n\;\.\[\]\(\)\{\}]+}mxu
+    id_re       = %r{[^ \t\n\r\n\;\.\[\]\(\)\{\}\\]+}mxu
     lexer.lexeme(:identifier        , id_re)
     
     

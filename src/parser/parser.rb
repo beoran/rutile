@@ -123,8 +123,12 @@ module Parser
     attr_reader :parser
     
     def initialize(parser, name)
-      @parser = parser
-      @name   = name
+      @parser   = parser
+      @name     = name.to_s
+    end
+    
+    def name=(name)
+      @name   = name.to_s
     end
     
     # Makes a result for this rule
@@ -457,7 +461,7 @@ module Parser
       @rule = rule
     end
     
-    # Changes the name of the defined suprule also if it's available
+    # Changes the name of the defined subrule also if it's available
     def name=(newname)
       @rule.name  = newname if @rule
       @name       = newname
@@ -512,6 +516,11 @@ module Parser
     @active      = []
     @checkpoints = []
     result    = @start.parse()
+    if !(eos?)
+      warn "End of file not reached when parsing!"
+      return nil
+    end
+    
     return result
   end
   
@@ -534,18 +543,25 @@ module Parser
     tok = peek()
     return false if !tok
     p tok
-    return tok.name == name     
+    return tok.name == name
   end  
   
   def get()
-    tok     = @tokens[@index]
-    @index += 1
+    tok       = @tokens[@index]
+    if !(eos?)
+      @index += 1
+    end
     return tok
   end
   
   def get?(name)
     return nil if not(peek?(name))
     return get()
+  end
+  
+  # end of stream detected? 
+  def eos?()
+    return @index >= @tokens.size
   end
 
     
@@ -597,7 +613,8 @@ module Parser
     else 
       setrule             = self.to_rule(value, keysym)
       @rules[keysym]      = setrule
-    end
+      setrule.name        = keysym
+    end    
   end
     
   # Returns the rule, or, if 
@@ -658,10 +675,13 @@ class RutileParser < Parser::Parser
     super()
     define_rules do
       comment   = t(:c_comment) | t(:shell_comment) | t(:cpp_comment)
-      blanks    = (t(:ws)       | t(:nl))
-      string    = t(:sqstring)  | t(:dqstring)  
-      package_tl= t(:package)   & t(:ws)        & string
-      import_tl = t(:package)   & t(:ws)        & string
+      blank     = (t(:ws)         | t(:nl)          | t(:escaped_nl))
+      blanks    = blank.+
+      space     = (t(:escaped_nl) | t(:ws))
+      spaces    = space.+
+      string    = t(:sqstring)  | t(:dqstring)
+      package_tl= t(:package)   & spaces        & string
+      import_tl = t(:import)    & spaces        & string
       toplevel  = package_tl    | import_tl    | comment       | blanks
       program   = toplevel.+
       self.start= program
@@ -680,15 +700,16 @@ if __FILE__ == $0
   if result
     result.to_graph.display
   else
-    warn "Syntax error in: #{parser.peek.lineno}"
-  end   
-  
-  
+    lasttok = parser.peek()
+    warn "Syntax error in: #{lasttok.lineno} : #{lasttok.colno}: #{lasttok.name} #{lasttok.text}"
+  end
 end
 
 
 __END__
-package "main"
+package \
+"main"
+
 
 import "stdio"
 
