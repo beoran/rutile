@@ -2,27 +2,22 @@ Rutile should become a low level compiled programming language that thas the
 following goals in order of importance:
 
 1) Implemented in Ruby.
-3) Allow low level programmming, and speedy compilation to assembly language.
-5) Be as Rubylike as possible, preferrably an almost compatible 
-   dialect of Ruby, so it much easier to use than C. 
+2) Compiles to machine code, ot an interpreter or a bytecode compiler.
+3) Allow low level programmming.
+4) Be parsable with a predictive parser, speedy compilation.
+5) Be as Rubylike as possible, so it much easier to use than C. 
 4) Retargetable. 
 6) Support as much Ruby-like high level constructs as is feasible.
 7) Type inference for low level primitives.
 
-
-Rutilec is a compiler or the Rutile programming language.
+Rutilec is a compiler for the Rutile programming language.
 The Rutile language tries to be as close to Ruby as possible, 
 whilst still remaining fully compilable without needing an 
 extensive runtime to support it. This means that some Ruby 
 semantics will only be supported at compile time, not at run time.
 
-The license is GPL v3.
+Licence will be the Zlib license.
 
 Of course this project is highly experimental for now. :)
 
-Current line of thought: why not compile to the 
-Go programming language?
-
-
-
-
+For the time being, it will compile to C. 
