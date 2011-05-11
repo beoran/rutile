@@ -2,14 +2,23 @@ module Rutile
   class Token
     attr_reader :line
     attr_reader :kind
-    attr_reader :text
-    attr_reader :coln
+    attr_reader :value
+    attr_reader :column
     
-    def initialize(kind, text, lineno = 1, coln = 1)
+    def initialize(kind, value, lineno = 1, column = 1)
       @line    = lineno
-      @text    = text
+      @value   = value
       @kind    = kind
-      @coln    = coln
+      @column  = column
     end
+    
+    def error?
+      return @kind == :error
+    end
+    
+    def eof?
+      return @kind == :eof
+    end
+    
   end
 end  

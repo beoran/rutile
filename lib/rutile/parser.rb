@@ -8,21 +8,48 @@ class Parser < Parslet::Parser
   end
 
   root(:unit)
-  rule(:constant_name) { match['A-Z'] >> (match['A-Z0-9_'].repeat)  }
-  rule(:type_name)     { match['A-Z'] >> (match['a-z0-9_'].repeat)  }
-  rule(:identifier)    { match['a-z'] >> (match['a-z0-9_'].repeat) >> match['!?'].any }
-  rule(:instance_var)  { match['@']   >> (match['a-z0-9_'].repeat)  }
-  rule(:ws)            { match['\s'].repeat                         }
-  rule(:ows)           { match['\s'].any?                           }
+  # whitespace handling: any low level token gobbles optional whitespace behind it.
+  rule(:constant_name) { match['A-Z'] >> (match['A-Z0-9_'].repeat) >> ws? }
+  rule(:type_name)     { match['A-Z'] >> (match['a-z0-9_'].repeat) >> ws? }
+  rule(:identifier)    { match['a-z'] >> (match['a-z0-9_'].repeat) >> match['!?'].maube >> ws? }
+  rule(:instance_var)  { match['@']   >> (match['a-z0-9_'].repeat) >> ws? }
+  rule(:ws)            { match[' \t'].repeat                        }
+  rule(:ws?)           { match[' \t'].maybe                         }
   rule(:crlf)          { match['\r']  >> match['\n']                }
   rule(:cr)            { match['\r']                                }
   rule(:lf)            { match['\n']                                }
-  rule(:eol)           { lf  | crlf | cr                            }
+  rule(:eol)           { (lf  | crlf | cr) >> ws?                   }
   rule(:define)        { str('def')                                 }
-  rule(:method_def)    { define >> identifier >> argument_list      } 
-  rule(:unit) do
-    rule(:constant_name) 
+  rule(:method_def)    { define >> identifier >> argument_list      }
+  
+  def kw(name) 
+    return str(name.to_s).as(name.to_sym) >> ws?
   end
+  
+  
+  rule :integer do
+    match('[0-9]').repeat(1).as(:integer)
+  end
+  
+  rule :string do
+    str('"') >>
+    (
+      (str('\\') >> any) |
+      (str('"').absent? >> any)
+    ).repeat.as(:string) >>
+    str('"')
+  end
+  
+  rule :literal do
+    (integer | string).as(:literal) >> ws?
+  end
+  
+  
+  rule(:unit) do
+    require_action     
+  end
+  
+  rule(:require_action) { kw('require') >> string >> ws? >> eol  }
 end
 
 end # module Rutile
