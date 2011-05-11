@@ -9,12 +9,17 @@ class Parser < Parslet::Parser
 
   root(:unit)
   rule(:constant_name) { match['A-Z'] >> (match['A-Z0-9_'].repeat)  }
+  rule(:type_name)     { match['A-Z'] >> (match['a-z0-9_'].repeat)  }
+  rule(:identifier)    { match['a-z'] >> (match['a-z0-9_'].repeat) >> match['!?'].any }
+  rule(:instance_var)  { match['@']   >> (match['a-z0-9_'].repeat)  }
   rule(:ws)            { match['\s'].repeat                         }
   rule(:ows)           { match['\s'].any?                           }
   rule(:crlf)          { match['\r']  >> match['\n']                }
   rule(:cr)            { match['\r']                                }
   rule(:lf)            { match['\n']                                }
   rule(:eol)           { lf  | crlf | cr                            }
+  rule(:define)        { str('def')                                 }
+  rule(:method_def)    { define >> identifier >> argument_list      } 
   rule(:unit) do
     rule(:constant_name) 
   end
