@@ -1,3 +1,36 @@
+require "parslet"
+
+module Rutile
+
+class Parser < Parslet::Parser
+  def initialize
+    super
+  end
+
+  root(:unit)
+  rule(:constant_name) { match['A-Z'] >> (match['A-Z0-9_'].repeat)  }
+  rule(:ws)            { match['\s'].repeat                         }
+  rule(:ows)           { match['\s'].any?                           }
+  rule(:crlf)          { match['\r']  >> match['\n']                }
+  rule(:cr)            { match['\r']                                }
+  rule(:lf)            { match['\n']                                }
+  rule(:eol)           { lf  | crlf | cr                            }
+  rule(:unit) do
+    rule(:constant_name) 
+  end
+end
+
+end # module Rutile
+
+
+
+
+
+
+
+
+
+
 =begin
 rutile: 
  
