@@ -80,7 +80,7 @@ class Parser < Parslet::Parser
   # only by anything that rule can parse, however, the tokens parsed by 
   # rule are not consumed
   def followed_by(rule)
-    (rule.absent? >> any).absent?.as(:tail)
+    (rule.absent? >> any).absent?
   end
   
   def self.keywords(*names)
@@ -89,14 +89,14 @@ class Parser < Parslet::Parser
        # this is subtle: a keyword may be followed by blanks alone
        # so we say, not followe by(not blank followed by any character)
        # which means "followed by a blank character"
-        str(name.to_s).as(:keyword) >> followed_by(blanknl)
+        str(name.to_s).as(name) >> followed_by(blanknl)
       end  
     end
   end
 
   keywords :def, :end, :extern, :struct, :union, 
            :if, :when, :case, :else, :elsif, :loop, :while, :until, 
-           :require, :public, :private, :typedef
+           :require, :public, :private, :typedef, :return
   
   rule :end_bug do 
     kw_end | identifier
@@ -165,19 +165,25 @@ class Parser < Parslet::Parser
   rule(:type)           { (type_name >> pointersign?).as(:type)             }
   rule(:type_declare)   { (type  >> ws).as(:type_declare)                   }
   rule(:type_declare?)  { type_declare.maybe                                }
+
+
+  def optional_type(rule)
+    return (type_declare >> rule).as(:type_declare_of) | rule
+  end
+
+  rule(:constant_set)   do
+    ws? >> optional_type(constant_name) >> assign >> literal >> eol 
+  end
   
-  rule(:constant_set)   { 
-    ws? >> type_declare? >> constant_name >> assign >> literal >> eol 
-  }
   
   rule(:variable_set)   do
-    (ws? >> type_declare? >> identifier >>  assign >> 
+    (ws? >> optional_type(identifier) >>  assign >> 
     literal >> eol).as(:variable_set) 
   end
- 
+
   
   rule(:argument)        do 
-    (variable_set | (type_declare? >> identifier)  | identifier |
+    (variable_set | optional_type(identifier) |
     str('...')).as(:argument)
   end
   
@@ -185,38 +191,90 @@ class Parser < Parslet::Parser
     argument >> ( comma >> argument ).repeat.maybe
   end
   
-  rule(:argument_list_paren) { oparen >> argument_list_noparen >> cparen }
-  
-  rule(:argument_list )  do 
-    (argument_list_paren | ws >> argument_list_noparen).as(:argument_list)  
+  rule(:argument_list_paren) do 
+    oparen >> argument_list_noparen >> cparen 
   end
   
-  rule(:argument_list?) { argument_list.maybe                               }
+  rule(:argument_list )  do 
+    (argument_list_paren | argument_list_noparen).as(:argument_list)
+  end
+  
+  rule(:argument_list?) do 
+    argument_list.maybe
+  end
+  
+
   
   rule(:function_head)  do 
-    (type_declare? >> identifier >> ws? >> argument_list?).as(:function_head)   
+    (optional_type(identifier) >> ws? >> argument_list?).as(:function_head)   
   end
   
   rule(:extern_function) do
-    (ws? >> kw_extern >> ws >> kw_def  >> 
+    (ws? >> kw_extern >> ws >> kw_def  >> ws >>
     function_head >> ows_eol).as(:extern_function) 
   end
   
   rule(:define_function) do  
-    (kw_def >> ws >> function_head >> eol >> 
-     kw_end >> eol).as(:define_function)
-     # function_body >>
+    (kw_def >> ws >> function_head >> ows_eol >>
+     function_body >> kw_end >> ows_eol).as(:define_function)
+     
   end
   
   rule(:function_body) do
     (function_statement.repeat.maybe).as(:function_body) 
   end 
   
+=begin 
+A.2.3 Statements
+(6.8) statement:
+labeled-statement
+compound-statement
+expression-statement
+selection-statement
+iteration-statement
+jump-statement
+
+(6.8.1) labeled-statement:
+identifier : statement
+case constant-expression : statement
+default : statement
+(6.8.2) compound-statement:
+{ block-item-list? }
+(6.8.2) block-item-list:
+block-item
+block-item-list block-item
+(6.8.2) block-item:
+declaration
+statement
+(6.8.3) expression-statement:
+expression? ;
+(6.8.4) selection-statement:
+if ( expression ) statement
+if ( expression ) statement else statement
+switch ( expression ) statement
+
+(6.8.5) iteration-statement:
+while ( expression ) statement
+do statement while ( expression ) ;
+for ( expressionopt ; expressionopt ; expressionopt ) statement
+for ( declaration expressionopt ; expressionopt ) statement
+
+(6.8.6) jump-statement:
+goto identifier ;
+continue ;
+break ;
+return expressionopt ;
+
+
+=end
+  
   rule(:function_statement) do
-    empty_line # | constant_set    | variable_set |    
-#     |
-#     if_statement    | case_statement | while_statement      | 
-#     until_statement | loop_statement | expression_statement 
+    constant_set   | variable_set         | # loop_statement |
+    empty_line
+    # case_statement | while_statement      |
+    # until_statement | # | expression_statement | 
+    # if_statement    | 
+    
   end
   
   rule(:condition) do 
@@ -390,8 +448,9 @@ class Parser < Parslet::Parser
     oparen >> type_name >> cparen
   end
   
-  def binex(first, op, second, name)
-    return (first >> binop(op) >> second).as(name)
+  def binex(first, ope, second, name)
+    opaid = binop(ope)
+    return (first >> opaid >> second).as(name)
   end
   
   rule(:multiplicative_expression) do 
@@ -454,8 +513,8 @@ class Parser < Parslet::Parser
   
   rule(:conditional_expression) do
     logicor_expression | 
-    (logicor_expression >> op('?') >> expression >> 
-    op(':') >> conditional_expression).as(:ternary_operator)
+    (logicor_expression >> binop('?') >> expression >> 
+    binop(':') >> conditional_expression).as(:ternary_operator)
   end
   
   rule(:assignment_expression) do 
@@ -487,7 +546,7 @@ class Parser < Parslet::Parser
   end
   
   rule(:define_member) do
-    (ws? >> type_declare? >> member_name >> 
+    (ws? >> optional_type(member_name) >> 
     (assign >> expression).maybe >> ws? >> eol).as(:define_member) 
   end
   

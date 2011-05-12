@@ -30,6 +30,7 @@ def noparse(rule, text)
   return true 
 end
 
+res = nil
 
 # Escaped end of lines, and line endings
 assert { parse :esceol, %{\\\n}                         }
@@ -118,35 +119,54 @@ assert { parse   :identifier     , 'foo' }
 
 # function declarations
 assert { parse   :argument       , 'foo' }
-assert { parse   :argument_list  , ' foo , bar , baz' }
-assert { parse   :argument_list  , ' foo,bar,baz' }
+assert { parse   :argument_list  , 'foo , bar , baz' }
+assert { parse   :argument_list  , 'foo,bar,baz' }
 assert { parse   :argument_list  , '(foo,bar,quux)'  }
 assert { parse   :argument_list  , '(foo,bar,quux)'  }
 assert { parse   :argument       , 'Int foo' }
-assert { parse   :argument_list  , ' Int foo , Char bar , Zip baz' }
+assert { parse   :argument_list  , 'Int foo , Char bar , Zip baz' }
 assert { parse   :argument_list  , '(Int foo , Char bar , baz)' }
 
 
-assert { parse   :extern_function, %{extern def foo
+
+assert { res = parse   :extern_function, %{extern def foo
+} }
+assert { res = parse   :extern_function, %{extern def Int foo;} }
+assert { noparse   :extern_function, %{externdef Int foo;} }
+assert { res = parse   :extern_function, %{extern def Int foo bar,baz , quux  
+} }
+assert { res = parse   :extern_function, %{extern def Int foo Int bar,baz , quux
 } }
 
-# assert { res = parse   :extern_function, %{extern def Int foo;} }
-# assert { noparse   :extern_function, %{externdef Int foo;} }
+
+assert { res = parse   :function_body, %{
+} }
+
+
+assert { res = parse   :define_function, %{def foo
+end   
+} }
+
+assert { res = parse   :define_function, %{def Int foo
+end   
+} }
+
+assert { res = parse   :define_function, %{def Int foo Int bar, quux
+
+end
+} }
+
+
+assert { parse :primary_expression, "a" }
+assert { parse :unary_expression, "a" }
+assert { parse :multiplicative_expression, "a*b" }
+
+# assert { parse :additive_expression, "a" }
+# assert { parse :additive_expression, "a+b" }
 # 
-# assert { res = parse   :extern_function, %{extern def Int foo bar,baz , quux
-# } }
-# assert { res = parse   :extern_function, %{extern def Int foo Int bar,baz , quux
-# } }
-# 
-# assert { res = parse   :define_function, %{def foo;end} }
+# assert { res = parse   :expression, "a+b"}
 
-
-res = nil
- 
-
- 
-
-p res
+# p res
  
 
 
