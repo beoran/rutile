@@ -9,21 +9,112 @@ class Parser < Parslet::Parser
 
   root(:unit)
   # whitespace handling: any low level token gobbles optional whitespace behind it.
-  rule(:constant_name) { match['A-Z'] >> (match['A-Z0-9_'].repeat) >> ws? }
-  rule(:type_name)     { match['A-Z'] >> (match['a-z0-9_'].repeat) >> ws? }
-  rule(:identifier)    { match['a-z'] >> (match['a-z0-9_'].repeat) >> match['!?'].maube >> ws? }
-  rule(:instance_var)  { match['@']   >> (match['a-z0-9_'].repeat) >> ws? }
-  rule(:ws)            { match[' \t'].repeat                        }
-  rule(:ws?)           { match[' \t'].maybe                         }
-  rule(:crlf)          { match['\r']  >> match['\n']                }
-  rule(:cr)            { match['\r']                                }
-  rule(:lf)            { match['\n']                                }
-  rule(:eol)           { (lf  | crlf | cr) >> ws?                   }
-  rule(:define)        { str('def')                                 }
-  rule(:method_def)    { define >> identifier >> argument_list      }
+  rule(:constant_name) do 
+    (match['A-Z'] >> match['A-Z0-9_'].repeat).as(:constant_name)
+  end
+    
+  rule(:type_name)     do 
+    (match['A-Z'] >> match['a-z0-9_'].repeat(1)).as(:type_name)
+  end  
   
-  def kw(name) 
-    return str(name.to_s).as(name.to_sym) >> ws?
+  rule(:identifier)    do
+    (match['a-z'] >> (match['a-z0-9_'].repeat) >>
+     match['!?'].maybe).as(:identifier)
+  end  
+  
+  rule(:member_name)   { match['@']   >> (match['a-z0-9_'].repeat)     }
+  # Blanks and line endings
+  rule(:blanknl)       { match[' \t\r\n']                              }
+  rule(:blanknl?)      { blank.maybe                                   }
+   
+  rule(:blank)         { match[' \t']                                  }
+  rule(:blank?)        { blank.maybe                                   }
+  rule(:blanks)        { match[' \t'].repeat  || comment                    }
+  rule(:blanks?)       { blanks.maybe                                       }
+  rule(:ws)            { blanks       >> esceol.maybe >> blanks             }
+  rule(:ws?)           { blanks.maybe >> esceol.maybe >> blanks.maybe       }
+  rule(:crlf)          { match['\r']  >> match['\n']                        }
+  rule(:cr)            { match['\r']                                        }
+  rule(:lf)            { match['\n']                                        }
+  rule(:cr_or_lf)      { lf  | crlf | cr                                    }
+  # Comments
+  rule(:line_comment)  do 
+    str('#') >> (cr_or_lf.absent? >> any).repeat.as(:comment) >> cr_or_lf
+  end
+    
+  rule(:block_comment)  do 
+    str('#{') >> (str('}#').absent? >> any).repeat.as(:comment)
+  end
+  
+  rule(:block_comment_2)  do 
+    str('=begin') >> (str('=end').absent? >> any).repeat.as(:comment)
+  end
+  
+  rule(:comment)       { line_comment | block_comment | block_comment_2     }
+   
+  # \\ can escape a line ending and turn it into whitespace.
+  rule(:esceol)        { str('\\') >> blanks.maybe  >> cr_or_lf             }
+  rule(:line_end)      { (str(';')| lf  | crlf | cr) >> ws?                 }
+  rule(:line_end?)     { line_end.maybe                                     }
+  rule(:eol)           { esceol.absent? >> line_end                         }
+  rule(:ows_eol)       { ws? >> eol                                         } 
+  rule(:define)        { str('def')                                         }
+  rule(:method_def)    { define >> identifier >> argument_list              }
+  rule(:eat_line_end)  { ws? >> line_end? >> ws?                            }
+  rule(:empty_line)    { ws? >> line_end >> ws?                             }
+  
+  # commas eat line_end 
+  rule(:comma)         { ws? >> str(',') >> eat_line_end                    }
+  
+  # assign eats line end
+  rule(:assign)        { ws? >> str('=') >> eat_line_end                    }
+  
+  # open paren eats line end
+  rule(:oparen)        { ws? >> str('(') >> eat_line_end                    }
+  # close paren does not eat line end, but only whitespace!
+  rule(:cparen)        { ws? >> str(')') >> ws?                             }
+  
+  rule(:colon)         { str(':') >> eat_line_end                           }
+  
+  # this is subtle: use this to state that a rule must be followed
+  # only by anything that rule can parse, however, the tokens parsed by 
+  # rule are not consumed
+  def followed_by(rule)
+    (rule.absent? >> any).absent?.as(:tail)
+  end
+  
+  def self.keywords(*names)
+    names.each do |name|
+      rule("kw_#{name}") do 
+       # this is subtle: a keyword may be followed by blanks alone
+       # so we say, not followe by(not blank followed by any character)
+       # which means "followed by a blank character"
+        str(name.to_s).as(:keyword) >> followed_by(blanknl)
+      end  
+    end
+  end
+
+  keywords :def, :end, :extern, :struct, :union, 
+           :if, :when, :case, :else, :elsif, :loop, :while, :until, 
+           :require, :public, :private, :typedef
+  
+  rule :end_bug do 
+    kw_end | identifier
+    # identifier | kw_end  would work, bu then keywords are not reserved 
+  end
+  
+  # binary operators eat whitespace and newlines after them  
+  def binop(name) 
+    return ws? >> str(name.to_s).as(name.to_sym) >> eat_line_end
+  end
+  
+  
+  rule :float do
+    (match('[0-9]').repeat(1) >> 
+    str('.') >> 
+    match('[0-9]').repeat(1) >>
+    ( match['eE'] >> match['+-'].maybe >> 
+    match('[0-9]').repeat(1)  ).maybe).as(:float)  # exponent
   end
   
   
@@ -41,20 +132,437 @@ class Parser < Parslet::Parser
   end
   
   rule :literal do
-    (integer | string).as(:literal) >> ws?
+    (float | integer | string).as(:literal) >> ws?
+  end
+  
+  rule :empty_lines do
+    empty_line.repeat
+  end
+  
+  rule(:require_action) { ws? >> kw_require >> ws >> string >> ows_eol   }
+  rule(:public_action)  { ws? >> kw_public >> ows_eol                    }
+  rule(:private_action) { ws? >> kw_private >> ows_eol                   }
+  
+  rule :compiler_action do
+    require_action  | private_action    | public_action  
+  end
+  
+  rule :unit_part do
+      compiler_action | 
+      constant_set    | variable_set      | extern_function | 
+      define_function | extern_struct     | define_struct   |
+      extern_union    | define_union      | typedef         | 
+      extern_typedef  | comment           | empty_line
+  end
+  
+  rule :unit do
+    unit_part.repeat
+  end
+  
+  # types and type declarations : 
+  rule(:pointersign)    { str('@').repeat.as(:pointer)                      }
+  rule(:pointersign?)   { pointersign.maybe                                 }
+  rule(:type)           { (type_name >> pointersign?).as(:type)             }
+  rule(:type_declare)   { (type  >> ws).as(:type_declare)                   }
+  rule(:type_declare?)  { type_declare.maybe                                }
+  
+  rule(:constant_set)   { 
+    ws? >> type_declare? >> constant_name >> assign >> literal >> eol 
+  }
+  
+  rule(:variable_set)   do
+    (ws? >> type_declare? >> identifier >>  assign >> 
+    literal >> eol).as(:variable_set) 
+  end
+ 
+  
+  rule(:argument)        do 
+    (variable_set | (type_declare? >> identifier)  | identifier |
+    str('...')).as(:argument)
+  end
+  
+  rule(:argument_list_noparen) do 
+    argument >> ( comma >> argument ).repeat.maybe
+  end
+  
+  rule(:argument_list_paren) { oparen >> argument_list_noparen >> cparen }
+  
+  rule(:argument_list )  do 
+    (argument_list_paren | ws >> argument_list_noparen).as(:argument_list)  
+  end
+  
+  rule(:argument_list?) { argument_list.maybe                               }
+  
+  rule(:function_head)  do 
+    (type_declare? >> identifier >> ws? >> argument_list?).as(:function_head)   
+  end
+  
+  rule(:extern_function) do
+    (ws? >> kw_extern >> ws >> kw_def  >> 
+    function_head >> ows_eol).as(:extern_function) 
+  end
+  
+  rule(:define_function) do  
+    (kw_def >> ws >> function_head >> eol >> 
+     kw_end >> eol).as(:define_function)
+     # function_body >>
+  end
+  
+  rule(:function_body) do
+    (function_statement.repeat.maybe).as(:function_body) 
+  end 
+  
+  rule(:function_statement) do
+    empty_line # | constant_set    | variable_set |    
+#     |
+#     if_statement    | case_statement | while_statement      | 
+#     until_statement | loop_statement | expression_statement 
+  end
+  
+  rule(:condition) do 
+    expression.as(:condition) 
+  end  
+  
+  rule(:expression_statement) do
+    ws? >> expression >> eol
+  end  
+  
+  
+  rule(:if_statement) do
+    (ws? >> kw_if >> condition >> eol >> 
+    if_body >> kw_end >> eol).as(:if_statement)
+  end 
+    
+  rule(:if_body) do 
+    function_body >> elseif_statements.maybe
+  end
+ 
+  rule(:elseif_statements) do 
+    elsif_statement.repeat.maybe >> else_statement
+  end
+  
+  rule(:elsif_statement) do 
+    (ws? >> kw_elsif >> condition >> eol >> 
+    if_body >> kw_end >> eol).as(:elsif_statement)
+  end
+  
+  rule(:else_statement) do 
+    (ws? >> kw_else >> eol >> 
+    if_body >> kw_end >> eol).as(:else_statement)
+  end
+  
+  rule(:while_statement) do
+    (ws? >>  kw_while >> condition >> eol >> 
+    loop_body >> kw_end >> eol).as(:while_statement)
+  end
+  
+  rule(:until_statement) do
+    (ws? >>  kw_until >> condition >> eol >> 
+    loop_body >> kw_end >> eol).as(:until_statement)
+  end
+  
+  rule(:loop_statement) do
+    (ws? >>  kw_loop >> kw_do >> eol >> 
+    loop_body >> kw_end >> eol).as(:loop_statement)
+  end
+  
+  rule(:break_statement) do
+    (ws? >> kw_break >> eol).as(:break_statement)
+  end
+  
+  rule(:next_statement) do
+    (ws? >> kw_next  >> eol).as(:next_statement)
+  end 
+  
+  rule(:loop_statement) do 
+    function_statement | break_statement | next_statement
+  end  
+  
+  rule(:loop_body) do
+    (loop_statement.repeat.maybe).as(:loop_body)  
+  end
+  
+  rule(:case_statement) do 
+    (ws? >>  kw_case >> condition >> eol >> 
+    case_body >> kw_end >> eol).as(:case_statement)
+  end
+    
+  rule(:case_body) do 
+    when_statement.repeat.maybe >> else_statement
+  end  
+  
+  rule(:when_statement) do 
+    (ws? >>  kw_when >> condition >> eol >>
+    function_body >> kw_when.absent?).as(:when_statement)
+  end
+  
+  # Expression tower starts here 
+  rule(:primary_expression) do
+    identifier | constant_expression | literal | oparen >> expression >> cparen
+  end
+  
+  # Function calls and method calls parameters 
+  rule(:parameter) do
+    (expression | str('...')).as(:parameter)
+  end
+  
+  rule(:parameter_list_1) do 
+    parameter >> ( comma parameter ).repeat.maybe
+  end
+  
+  rule(:parameter_list_2) do 
+    oparen >> parameter_list_1 >> cparen
+  end  
+  
+  rule(:parameter_list)  do 
+    (parameter_list_2 | parameter_list_1).as(:parameter_list)  
+  end
+  
+  rule(:parameter_list?)  do 
+    parameter_list.maybe
+  end
+
+  rule(:function_call) do
+     (postfix_expression >> parameter_list?).as(:function_call)
+  end
+  
+  rule(:array_index) do
+     (postfix_expression >> obracket >> expression >> cbracket).as(:array_index) 
+  end
+  
+  rule(:member_select) do
+     (postfix_expression >> dot >> identifier).as(:member_select)
+  end
+  
+  rule(:send_message) do
+     (postfix_expression >> dot >> identifier >> parameter_list).as(:send_message)
+  end
+  
+  rule(:post_decrement) do
+     (postfix_expression >> kw('--')).as(:post_decrement)
+  end
+  
+  rule(:post_increment) do
+     (postfix_expression >> kw('++')).as(:post_decrement)
+  end
+  
+  rule(:pre_decrement) do
+     (kw('--') >> unary_expression).as(:pre_decrement)
+  end
+  
+  rule(:pre_increment) do
+     (kw('++') >> unary_expression).as(:pre_decrement)
   end
   
   
-  rule(:unit) do
-    require_action     
+  rule(:postfix_expression) do 
+    primary_expression | 
+    array_index        | 
+    function_call      | 
+    send_message       |
+    member_select      |
+    post_decrement     |
+    post_increment
   end
   
-  rule(:require_action) { kw('require') >> string >> ws? >> eol  }
-end
+  rule(:sizeof_expression) do
+    (kw_sizeof >> oparen >> unary_expression >> cparen).as(:sizeof_expression)
+  end
+  
+  rule(:sizeof_type) do
+    (kw_sizeof >> oparen >> type_name >> cparen).as(:sizeof_type)
+  end
+  
+  
+  rule(:unary_expression) do 
+    postfix_expression                                        |
+    (unary_operator >> cast_expression).as(:unary_operation)  |
+    sizeof_expression                                         |
+    sizeof_type
+  end 
+   
+  rule(:unary_operator) do 
+    match['&*+-~'].as(:unary_operator)
+  end
+  
+  rule(:cast_expression) do 
+    unary_expression |
+    oparen >> type_name >> cparen
+  end
+  
+  def binex(first, op, second, name)
+    return (first >> binop(op) >> second).as(name)
+  end
+  
+  rule(:multiplicative_expression) do 
+    cast_expression | 
+    binex(multiplicative_expression, '*', cast_expression, :multiply) |
+    binex(multiplicative_expression, '/', cast_expression, :divide)   |
+    binex(multiplicative_expression, '%', cast_expression, :modulus)
+  end
+  
+  rule(:additive_expression) do 
+    multiplicative_expression |
+    binex(additive_expression, '+',  multiplicative_expression, :add) | 
+    binex(additive_expression, '-',  multiplicative_expression, :substract)
+  end
+  
+  rule(:shift_expression) do 
+    additive_expression |
+    binex(shift_expression, '>>',  additive_expression, :leftshift) | 
+    binex(shift_expression, '<<',  additive_expression, :rightshift)
+  end
+  
+  rule(:relational_expression) do
+    additive_expression | 
+    binex(relational_expression, '<',  shift_expression, :lessthan) |
+    binex(relational_expression, '>',  shift_expression, :morethan) |
+    binex(relational_expression, '<=',  shift_expression, :lessorequal) |
+    binex(relational_expression, '>=',  shift_expression, :moreorequal) 
+  end 
+   
+  rule(:equality_expression) do 
+    relational_expression | 
+    binex(equality_expression, '==', relational_expression, :equal)   |
+    binex(equality_expression, '!=', relational_expression, :inequal) 
+  end
+    
+  rule(:binand_expression) do
+    equality_expression | 
+    binex(binand_expression, '&', equality_expression, :binaryand)  
+  end  
+  
+  rule(:binxor_expression) do
+    binand_expression | 
+    binex(binxor_expression, '^', binand_expression, :binaryxor)  
+  end  
+  
+  rule(:binor_expression) do
+    binxor_expression | 
+    binex(binor_expression, '|', binxor_expression, :binaryor)  
+  end  
+  
+  rule(:logicand_expression) do
+    binor_expression | 
+    binex(logicand_expression, '&&', binor_expression, :logicand)  
+  end  
+   
+  rule(:logicor_expression) do
+    logicand_expression | 
+    binex(logicor_expression, '||', logicand_expression, :logicor)  
+  end  
+  
+  rule(:conditional_expression) do
+    logicor_expression | 
+    (logicor_expression >> op('?') >> expression >> 
+    op(':') >> conditional_expression).as(:ternary_operator)
+  end
+  
+  rule(:assignment_expression) do 
+    conditional_expression | 
+    (unary_expression assignment_operator assignment_expression).as(:assign)
+  end
+    
+  rule(:assignment_operator) do
+    op('=')   || op('*=')  || op('/=') || op('%=') || op('+=') || op('-=') ||
+    op('<<=') || op('>>=') || op('&=') || op('^=') || op('|=') 
+  end 
+  
+  rule(:expression) do
+    assignment_expression 
+  end 
+  
+  rule(:constant_expression) do
+    conditional_expression
+  end
+  
+  rule(:define_struct) do 
+    (ws? >> kw_struct >> type_name.as(:name) >>  eol  >> 
+    struct_body >> kw_end).as(:define_struct)
+  end
+     
+  rule(:define_union) do 
+    (ws? >> kw_struct >> type_name.as(:name) >>  eol >> 
+    union_body >> kw_end).as(:define_struct)
+  end
+  
+  rule(:define_member) do
+    (ws? >> type_declare? >> member_name >> 
+    (assign >> expression).maybe >> ws? >> eol).as(:define_member) 
+  end
+  
+  rule(:union_part) do
+    define_member   | private_action  | public_action   | 
+    extern_struct   | define_struct   | 
+    constant_set    | variable_set    | extern_function | 
+    define_function | comment         | empty_line
+  end
+  
+  rule(:union_body) do
+    (union_part.repeat.maybe).as(:body)
+  end
+  
+  rule(:struct_part) do
+    define_member   | private_action    | public_action   |
+    extern_union    | define_union      |
+    constant_set    | variable_set      | extern_function |
+    define_function | comment           | empty_line 
+  end
+  
+  rule(:struct_body) do
+    (struct_part.repeat.maybe).as(:body)
+  end
+  
+
+  rule(:extern_struct) do
+    (ws? >> kw_extern >> kw_struct >> type_name >>  eol).as(:extern_struct) 
+  end
+  
+  rule(:extern_union) do
+    (ws? >> kw_extern >> kw_union >> type_name >>  eol).as(:extern_union) 
+  end
+  
+  rule(:typedef) do
+    (ws? >> kw_typedef >> type >> type_name >>  eol).as(:typedef)
+  end
+  
+  rule(:extern_typedef) do 
+    (ws? >> kw_extern >> kw_typedef >> type_name >>  eol).as(:extern_typedef)
+  end
+ 
+  
+
+  
+end # class Parser
 
 end # module Rutile
 
+=begin
+Ruby operators: 
 
+
+Y   [ ] [ ]=  Element reference, element set
+Y   **  Exponentiation
+Y   ! ~ + -   Not, complement, unary plus and minus (method names for the last two are +@ and -@)
+Y   * / %   Multiply, divide, and modulo
+Y   + -   Plus and minus
+Y   >> <<   Right and left shift
+Y   &   Bitwise `and'
+Y   ^ |   Bitwise exclusive `or' and regular `or'
+Y   <= < > >=   Comparison operators
+Y   <=> == === != =~ !~   Equality and pattern match operators (!= and !~ may not be defined as methods)
+  &&  Logical `and'
+  ||  Logical `or'
+  .. ...  Range (inclusive and exclusive)
+  ? :   Ternary if-then-else
+  = %= { /= -= += |= &= >>= <<= *= &&= ||= **=  Assignment
+  defined?  Check if symbol defined
+  not   Logical negation
+  or and  Logical composition
+  if unless while until   Expression modifiers
+  begin/end   Block expression
+  
+=end
 
 
 
@@ -78,7 +586,7 @@ PRIVATE_EXP     -> private NL.
 CONST_DEF       -> constname equal CONST_VAL NL.
 CONST_VAL       -> constname | string | intval | floatval .
 FUNC_RET        -> return ARGLIST .
-FUNC_HEAD       -> FUNC_HEAD_NORET | FUNC_HEAD_RET . 
+FUNC_HEAD       -> FUNC_HEAD_NORET | FUNC_HEAD_RET. 
 FUNC_HEAD_RET   -> FUNC_RET FUNC_NAME ARGLIST.
 FUNC_HEAD_NORET -> FUNC_NAME ARGLIST.
 FUNC_NAME     -> identifier .
