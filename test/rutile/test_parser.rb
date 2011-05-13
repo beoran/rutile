@@ -156,10 +156,11 @@ assert { res = parse   :define_function, %{def Int foo Int bar, quux
 end
 } }
 
-
+assert { parse :identifier, "a" }
+assert { parse :identifier, "a?" }
 assert { parse :primary_expression, "a" }
 assert { parse :unary_expression, "a" }
-assert { parse :multiplicative_expression, "a*b" }
+assert { parse :multiplicative_expression, "a%b" }
 
 # assert { parse :additive_expression, "a" }
 # assert { parse :additive_expression, "a+b" }

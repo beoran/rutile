@@ -73,6 +73,13 @@ class Parser < Parslet::Parser
   rule(:oparen)        { ws? >> str('(') >> eat_line_end                    }
   # close paren does not eat line end, but only whitespace!
   rule(:cparen)        { ws? >> str(')') >> ws?                             }
+  # open bracket eats line end
+  rule(:obracket)      { ws? >> str('[') >> eat_line_end                    }
+  # close bracket does not eat line end, but only whitespace!
+  rule(:cbracket)      { ws? >> str(']') >> ws?                             }
+  # dot  eats line end
+  rule(:dot)           { ws? >> str('.') >> ws?                             }
+
   
   rule(:colon)         { str(':') >> eat_line_end                           }
   
@@ -96,7 +103,7 @@ class Parser < Parslet::Parser
 
   keywords :def, :end, :extern, :struct, :union, 
            :if, :when, :case, :else, :elsif, :loop, :while, :until, 
-           :require, :public, :private, :typedef, :return
+           :require, :public, :private, :typedef, :return, :sizeof
   
   rule :end_bug do 
     kw_end | identifier
@@ -356,7 +363,8 @@ return expressionopt ;
   
   # Expression tower starts here 
   rule(:primary_expression) do
-    identifier | constant_expression | literal | oparen >> expression >> cparen
+    identifier | # constant_expression | 
+    literal | oparen >> expression >> cparen
   end
   
   # Function calls and method calls parameters 
@@ -397,11 +405,11 @@ return expressionopt ;
   end
   
   rule(:post_decrement) do
-     (postfix_expression >> kw('--')).as(:post_decrement)
+     (postfix_expression >> ws? >> str('--') >> ws?).as(:post_decrement)
   end
   
   rule(:post_increment) do
-     (postfix_expression >> kw('++')).as(:post_decrement)
+     (postfix_expression >> ws? >> str('++') >> ws?).as(:post_decrement)
   end
   
   rule(:pre_decrement) do
@@ -433,24 +441,24 @@ return expressionopt ;
   
   
   rule(:unary_expression) do 
-    postfix_expression                                        |
-    (unary_operator >> cast_expression).as(:unary_operation)  |
-    sizeof_expression                                         |
+    postfix_expression                                               |
+    (unary_operator >> ws? >> cast_expression).as(:unary_operation)  |
+    sizeof_expression                                                |
     sizeof_type
   end 
    
   rule(:unary_operator) do 
-    match['&*+-~'].as(:unary_operator)
+    match['&+-~'].as(:unary_operator) # removed * 
   end
   
   rule(:cast_expression) do 
     unary_expression |
-    oparen >> type_name >> cparen
+    oparen >> type_name >> cparen >> cast_expression
   end
   
   def binex(first, ope, second, name)
     opaid = binop(ope)
-    return (first >> opaid >> second).as(name)
+    return (first >> ws? >> str(ope).as(:ope) >> ws? >> second).as(name)
   end
   
   rule(:multiplicative_expression) do 
