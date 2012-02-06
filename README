@@ -1,23 +1,24 @@
 Rutile should become a low level compiled programming language that thas the 
 following goals in order of importance:
 
-1) Bootstrap is implemented in Ruby, next step is self-hosted.
-2) Compiles to machine code, not an interpreter or a bytecode compiler.
-3) Allow low level programmming.
-4) Be parsable with a predictive parser, speedy compilation.
-5) Be as Rubylike as possible, so it much easier to use than C. 
-4) Retargetable. 
-6) Support as much Ruby-like high level constructs as is feasible.
-7) Type inference for low level primitives.
+ 1) Compiles to C and later to machine code, not an interpreter or bytecodes.
+ 2) Very easy interfacing with C.
+ 3) Get what is good from C and make it easier to use.
+ 4) Allow low level programmming, especially game programming.
+ 5) Be parsable with a predictive parser, speedy compilation.
+ 6) Support as many high level  and Rubylike constructs as is feasible.
+ 7) Syntax like between C and Ruby.
+ 8) Type inference as much as is possible.
+ 9) Type checking to assist, but not hinder the programmer.
+10) Retargetable.
 
-Rutilec is a compiler for the Rutile programming language.
-The Rutile language tries to be as close to Ruby as possible, 
-whilst still remaining fully compilable without needing an 
-extensive runtime to support it. This means that some Ruby 
-semantics will only be supported at compile time, not at run time.
+Rutilec will be a compiler for the Rutile programming language.
+I wanted to bootstrap in Ruby but since it will comple to C, it's
+better to bootstrap in C since that make self-replacement of
+certain modules easier. Of course this
 
 Licence will be the Zlib license.
 
 Of course this project is highly experimental for now. :)
 
-For the time being, it will compile to C. 
+
