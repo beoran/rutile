@@ -45,6 +45,18 @@ struct RuBox_ {
 
 typedef struct RuBox_ RuBox;
 
+
+typedef RuThing * (RuThingFunc)(RuThing * thing, ...);
+
+union RuValue_ {
+  float         fl;
+  int           in;
+  void        * pt;
+  RuThingFunc * fn;
+};
+
+typedef union RuValue_ RuValue;
+
 typedef RuThing * (RuThingFreeFunc)(RuThing * thing);
 
 
