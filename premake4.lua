@@ -13,7 +13,8 @@
 	
 	project "Rutile"
 		targetname  "rutile"
-		language    "C"
+		language    "C"		
+    premake.gcc.cc = "/usr/bin/clang"
 		kind        "ConsoleApp"
 		flags       { "ExtraWarnings"}
 		

@@ -2,6 +2,7 @@
 #define RUWIRE_H
 
 #include <stdint.h>
+#include <stdlib.h>
 #include "ruthing.h"
 
 

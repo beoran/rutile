@@ -2,6 +2,8 @@
 #define RUTHING_H
 
 #include <stdint.h>
+#include <stddef.h>
+#include <stdlib.h>
 
 
 enum RuThingType_ {
@@ -37,10 +39,13 @@ struct RuThing_ {
 
 typedef struct RuThing_ RuThing;
 
+typedef void * (RuDoneFunc)(void * ptr);
+
 struct RuBox_ {
-  RuThing parent;  
-  void  * ptr;
-  int     size;
+  RuThing      parent;  
+  void       * ptr;
+  int          size;
+  RuDoneFunc * done;
 };
 
 typedef struct RuBox_ RuBox;
@@ -70,6 +75,12 @@ RuThing * ruthing_toss(RuThing * self);
 #define RUTHING_TOSS(THINGP)  (ruthing_toss((RuThing*)(THINGP)))
 #define RUTHING_USE(THINGP)   (ruthing_use((RuThing*)(THINGP)))
 
+/** Allocates new space and wraps it in a RuBox. Done is a cleanup function. */
+RuBox * rubox_newalloc(int size, RuDoneFunc * done);
+
+/** IF rubox_newalloc was used, this macro returns the wrapping RuBox
+pointer based on the box's ->ptr;  */
+#define RU_BOX_OF(PTR) (((char *)(PTR)) - sizeof(RuBox))
 
 
 #endif
