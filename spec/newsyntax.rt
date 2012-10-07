@@ -1,0 +1,135 @@
+/* Comments. All comments are autodoc stings as well, unless theyr'e 
+marked otherwise. */
+
+// also a comment
+# perhaps also a comment?
+
+/** Package. Is optional and defaults to "". */
+package "main"
+
+/* Import packages. */
+use "io"
+
+/* Import using no prefix*/
+use "io"  : _
+
+/* Import using alternative prefix*/
+use "foo" : bar
+
+/* Switch accessibility to public. */
+public 
+
+/* Constants. Constants are untyped and cast on use. 
+Hence they don't support type inference. */
+const FOO = 10
+
+/* Switch accessibility to package-private. */
+private
+
+/* Variables */
+var bar, baz int = 20, 30
+
+/* Pointers... */
+var barp  int ptr  = &bar
+/* Or alternatively */
+var barp2 ptr int = &bar
+/* Or using type inference */
+var barp3        := &bar
+
+/** Automaticaly reference counted pointers. */
+var barp int ref = new(int)
+
+/* Functions */
+fun frobnicate(a int, b int) int {
+  return a + b
+}
+
+
+/** Structures */
+typedef Foo struct {
+  x int
+  y int
+  private 
+  z int
+}
+
+/** Unions. */
+typedef Bar union {
+  foo Foo
+  bar Bar
+}
+
+/** Methods */
+for Foo {
+  /** Mangled to Foo_frob(Foo * self) */
+  fun frob() int {
+    // @ is short for self. or self-> 
+    // (which doesn't exist in rutile, since . is transparent) 
+    return self.x + @y 
+  }
+}
+
+/** Also allowed! */
+for int {
+  fun frob() int {
+    return self + 10
+  }
+}
+
+/** Interfaces */ 
+typedef Destroyer interface {
+  Destroy()
+}
+
+/* Types automatically implement interfaces if they have any matching 
+implementations in an implement block */
+
+/* C Interoperability */
+// Turn of auto prefix (on by default)
+pragma "extern autoprefix off"
+
+// no wrappers needed, just an extern declaration string in the body.
+extern fun al_is_system_installed() bool
+
+// Or if you'd like to use a different name 
+extern fun al_is_system_installed() bool : is_system_installed?
+
+// Same for structs 
+extern struct ALLEGRO_DISPLAY
+
+// Shorthand for extern struct ALLEGRO_DISPLAY ; typedef Display ALLEGRO_DISPLAY
+extern struct ALLEGRO_DISPLAY as Display
+
+// Or to help omitting prefixes
+pragma "extern prefix al_"
+
+// now this gets mangled automatically to al_is_system_installed
+extern fun is_system_installed() bool
+
+// Or to help omitting prefixes automatically
+pragma "extern autoprefix on"
+// Now extern names are mangled using the name of the package again
+extern fun bananas() bool
+// this will be mangled to int main_bananas()
+
+
+
+/* Needed keywords : 
+  typedef struct union var const pragma extern 
+  interface implement
+  ref ptr 
+  if while do goto end as
+  public private
+
+*/
+
+// C compatible basic types: int short long char double float longlong
+// Unsigned C compatible types: uint ushort ulong uchar ulonglong
+// Precise types int8 int16 int32 int64 float32 float64 
+// uint8 uint16 uint32 uint64
+
+/** Name Mangling: fun names are mangled to pakcagename_functionname, 
+and for blok fun names are mandled as packagename_typename_  */
+
+
+
