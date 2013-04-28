@@ -1,57 +1,27 @@
-# this is comment
-( And this is also
-a comment )
+( This is the rutile interpreter bootstrap in pre-rutile )
 
+set MODE_PARSE    to_i 1
+set MODE_RUN      to_i 2
+set MODE_STRING   to_i 3
+set MODE_BLOCK    to_i 4
+set MODE_COMMENT  to_i 5
+set MODE_DONE     to_i 6
+set $now          { }
+set $mode         get MODE_PARSE
+set $blocks       to_i 0
+set $escape       false
+set $pstack       array 0
+set $stack        array 0
+set $strend       false
+set $comend       false
+set $lineno       to_i 0
 
-
-def say_hello { 
-  puts "hello rutile from say_hello" 
-  set a to_i 10
-  # automatic return of a since a is put on the stack
-  $ a
+def parse_input { 
 } 
 
-say_hello
-puts
+puts "OK"
 
 !dump
-
-if same to_i 10 get a {
-  puts "A is 10 as expected"
-} 
-else {
-  puts "Uhoh!"
-}
-
-if same to_i 11 get a {
-  puts "Uhoh!"
-} 
-else {
-  puts "A is not 11 as expected"
-}
-
-
-case get a 
-when to_i 10 {
-  puts "A is 10 as expected in when"
-} 
-when to_i 11 {
-  puts "Uhoh in when"
-}
-
-while { 
-  same to_i 10 get a
-} {
-  puts "A is 10 as expected in while"
-  set a to_i 11
-}
-
-10
-11.
-dump
-
-
-puts "all done" 
 
 
 

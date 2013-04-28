@@ -56,6 +56,24 @@ $words = {
   "to_i"     => :do_integer,
   "to_f"     => :do_float,
   "to_s"     => :do_string,
+  "fopen"    => :do_fopen,
+  "fclose"   => :do_fclose,
+  "fputs"    => :do_fputs,
+  "fgetc"    => :do_fgetc,
+  "fputc"    => :do_fputc,
+  "false"    => :do_false,
+  "true"     => :do_true,
+  "array"    => :do_array,
+  "append"   => :do_appenda,
+  "pusha"    => :do_appenda,
+  "popa"     => :do_popa,
+  "index"    => :do_indexa,
+  "size"     => :do_sizea,
+  "[]"       => :do_indexa,
+  "<<"       => :do_appenda,
+  "^^"       => :do_popa,
+  "vv"       => :do_pusha,
+  "pop"      => :do_pop,
 }
 $stack = []
 
@@ -273,6 +291,93 @@ def do_string
 end
 
 
+
+def do_fopen
+  name = pop()
+  mode = pop()
+  file = File.open(name, mode)
+  push(file)
+end
+
+  
+              
+def do_fclose
+  file = pop
+  if(file) 
+    file.close
+  end
+end
+
+def do_fputs
+  string  = pop
+  file    = pop
+  if file
+    file.puts(file)
+  end
+end
+
+def do_fgetc
+  file    = pop
+  if file
+    push(file.getc)
+  else
+    push(nil)
+  end
+end
+
+def do_fputc
+  ch      = pop
+  file    = pop
+  if file
+    file.putc(ch)
+  end
+end
+
+def do_false
+  push(false)
+end
+
+def do_true
+  push(false)
+end
+
+def do_array
+  size = pop
+  push Array.new(size.to_i)
+end
+
+def do_append
+  arr  = pop
+  elem = pop
+  arr << elem
+  push arr
+end
+
+def do_popa
+  arr  = pop
+  res = arr.pop
+  push res
+end
+
+def do_index
+  arr    = pop
+  index  = pop
+  res = arr[index]
+  push arr
+end
+
+def do_size
+  arr     = pop 
+  push(arr.size)
+end
+
+
+def do_pop
+  pop
+end
+
+# end of builtin functions
+
 def try_getc(fin)
   ch   = fin.getc
   unless ch
@@ -280,6 +385,9 @@ def try_getc(fin)
   end
   return ch
 end
+
+
+
 
 def to_value(v) 
   return v
@@ -292,6 +400,8 @@ def to_value(v)
 #     return v
 #   end
 end
+
+
 
 def parse_mode_parse(fin, fout)
   ch = try_getc(fin)
