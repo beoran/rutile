@@ -1,0 +1,58 @@
+# this is comment
+( And this is also
+a comment )
+
+
+
+def say_hello { 
+  puts "hello rutile from say_hello" 
+  set a to_i 10
+  # automatic return of a since a is put on the stack
+  $ a
+} 
+
+say_hello
+puts
+
+!dump
+
+if same to_i 10 get a {
+  puts "A is 10 as expected"
+} 
+else {
+  puts "Uhoh!"
+}
+
+if same to_i 11 get a {
+  puts "Uhoh!"
+} 
+else {
+  puts "A is not 11 as expected"
+}
+
+
+case get a 
+when to_i 10 {
+  puts "A is 10 as expected in when"
+} 
+when to_i 11 {
+  puts "Uhoh in when"
+}
+
+while { 
+  same to_i 10 get a
+} {
+  puts "A is 10 as expected in while"
+  set a to_i 11
+}
+
+10
+11.
+dump
+
+
+puts "all done" 
+
+
+
+
